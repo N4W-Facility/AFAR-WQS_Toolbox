@@ -7,8 +7,6 @@ classdef (HandleCompatible) ClassNetwork < handle
 % Author        : Jonathan Nogales Pimentel
 %                 Carlos Andrés Rogéliz Prada
 % Email         : jonathannogales02@gmail.com
-% Company       : The Nature Conservancy - TNC
-% Date          : October, 2018
 % 
 % -------------------------------------------------------------------------
 % This program is free software: you can redistribute it and/or modify it 

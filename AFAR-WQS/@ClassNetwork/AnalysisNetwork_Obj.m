@@ -7,8 +7,6 @@ function [FuncNetwork, varargout] = AnalysisNetwork_Obj(obj, varargin)
 % Author        : Jonathan Nogales Pimentel
 %                 Carlos Andrés Rogéliz Prada
 % Email         : jonathannogales02@gmail.com
-% Company       : The Nature Conservancy - TNC
-% Date          : October, 2018
 % 
 % -------------------------------------------------------------------------
 % This program is free software: you can redistribute it and/or modify it 
@@ -59,7 +57,7 @@ function [FuncNetwork, varargout] = AnalysisNetwork_Obj(obj, varargin)
 %   AccumClipLossVarOut [n,h] = Cumulative Variables With Losses and Clipping
 %   PoNet               [n,1] = Position of the Network in one River Sections 
 %                               Special
-%
+
 set(0,'RecursionLimit',40000)
 
 % -------------------------------------------------------------------------

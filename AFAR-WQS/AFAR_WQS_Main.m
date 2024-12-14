@@ -3,11 +3,9 @@
 % -------------------------------------------------------------------------
 %                            INFORMATION
 % -------------------------------------------------------------------------
-% Autor         : Jonathan Nogales Pimentel
+% Author        : Jonathan Nogales Pimentel
 %                 Carlos Andrés Rogéliz Prada
 % Email         : jonathannogales02@gmail.com
-% Company       : The Nature Conservancy - TNC
-% Date          : October, 2024
 % 
 % -------------------------------------------------------------------------
 % This program is free software: you can redistribute it and/or modify it 
@@ -194,12 +192,12 @@ for ii = 1:length(Posi)
     % Saturation dissolved oxygen concentration [mg/l]
     ReachData(ii).('C_OS')      = AFAR_Obj.C_OS(Posi(ii));
     % Elemental Mercury Concentration [ng/l]
-    ReachData(ii).('C_Hg0')     = AFAR_Obj.C_Hg0(Posi(ii))*1000000;
+    ReachData(ii).('C_Hg0')     = AFAR_Obj.C_Hg0(Posi(ii));
     % Divalent Mercury Concentration [ng/l]
-    ReachData(ii).('C_Hg2')     = AFAR_Obj.C_Hg2(Posi(ii))*1000000;
+    ReachData(ii).('C_Hg2')     = AFAR_Obj.C_Hg2(Posi(ii));
     % Methyl Mercury Concentration [ng/l]
-    ReachData(ii).('C_MeHg')    = AFAR_Obj.C_MeHg(Posi(ii))*1000000;
+    ReachData(ii).('C_MeHg')    = AFAR_Obj.C_MeHg(Posi(ii));
     % Total Mercury Concentration [ng/l]
-    ReachData(ii).('C_HgT')     = (AFAR_Obj.C_Hg0(Posi(ii)) + AFAR_Obj.C_Hg2(Posi(ii)) + AFAR_Obj.C_MeHg(Posi(ii)))*1000000;
+    ReachData(ii).('C_HgT')     = (AFAR_Obj.C_Hg0(Posi(ii)) + AFAR_Obj.C_Hg2(Posi(ii)) + AFAR_Obj.C_MeHg(Posi(ii)));
 end
 shapewrite(ReachData,fullfile(ProjectPath,'Example_Project','OUTPUTS','Network_AFAR-WQS.shp'));

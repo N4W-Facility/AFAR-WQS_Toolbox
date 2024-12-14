@@ -2,13 +2,11 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
     % ---------------------------------------------------------------------
     % Matlab - R2023b 
     % ---------------------------------------------------------------------
-    %                            INFORMATION
+    %                            INFORMACIÓN
     % ----------------------------------------------------------------------
-    % Autor         : Jonathan Nogales Pimentel
+    % Author        : Jonathan Nogales Pimentel
     %                 Carlos Andrés Rogéliz Prada
     % Email         : jonathannogales02@gmail.com
-    % Company       : The Nature Conservancy - TNC
-    % Date          : October, 2024
     % 
     % ----------------------------------------------------------------------
     % This program is free software: you can redistribute it and/or modify it 
@@ -43,16 +41,8 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
         BoundingBox
         % X
         X
-        % AND
+        % Y
         Y
-        % X_FN
-        X_FN
-        % Y_FN
-        Y_FN
-        % X_TN
-        X_TN
-        % Y_TN
-        Y_TN
         % Area [m^2]
         A(:,1) double         
         % River length [m]
@@ -93,7 +83,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
         % Depth River [m]
         H(:,1) double
         % River flow velocity [m/s]
-        v(:,1) double
+        U(:,1) double
         % Water temperature [°C]
         T(:,1) double
         % Arrival or advection time of the river [day]
@@ -105,7 +95,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
         % Dispersive fraction [dimensionless]
         DF(:,1) double
         % Solute velocity in the river [m/s]
-        Vs(:,1) double
+        Us(:,1) double
         % Effective delay coefficient [dimensionless]
         Beta          
         % Turbidity in nephelometric turbidity units [NTU]
@@ -158,6 +148,8 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
         C_SS(:,1) double
         % Turbidity [NTU]
         C_Turb(:,1) double
+        % Conductivity [μS⁄cm]
+        C_Co(:,1) double
         % Inorganic Phosphorus Concentration [mg/l]
         C_PO(:,1) double
         % Organic Phosphorus Concentration [mg/l]
@@ -375,7 +367,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Depth [m]
             obj.H           = [ReachData.H]';
             % Flow velocity [m/s]
-            obj.v           = [ReachData.v]';
+            obj.U           = [ReachData.U]';
             % Water temperature [°C]
             obj.T           = [ReachData.T]';
 
@@ -384,7 +376,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % -------------------------------------------------------------
             ip = inputParser;    
             % Check - Solute velocity
-            addParameter(ip, 'Vs',[],@ismatrix)
+            addParameter(ip, 'Us',[],@ismatrix)
             % Check - Dispersive fraction
             addParameter(ip, 'DF',[],@ismatrix)
             % Check - Travel time
@@ -398,7 +390,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Dispersive fraction [Ad]
             DF  = ip.Results.DF;
             % Solute velocity [m/s]
-            Vs  = ip.Results.Vs;
+            Us  = ip.Results.Us;
             % Travel time [d]
             tb  = ip.Results.tb;
             % Arrival or advection time [d]
@@ -507,9 +499,9 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Calculation of Solute Velocity [m/s]
             if isempty(DF)
                 obj.Beta_Gonzalez;
-                obj.Vs_Lees;
+                obj.Us_lees;
             else
-                obj.Vs = Vs;
+                obj.Us = Us;
             end         
             
             % Calculation of the Dispersive Fraction (Ad)
@@ -534,7 +526,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
                 % Conversion Factor: Sec to day
                 ConFac_1 = 1./(3600*24);
                 % Travel time of the current [d]
-                obj.tb = (obj.L./obj.Vs).*ConFac_1;  
+                obj.tb = (obj.L./obj.Us).*ConFac_1;  
                 % Arrival or advection time of the current [d]
                 obj.tao = obj.tb.*(1 - obj.DF);
             end                                           
@@ -913,6 +905,8 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             obj.Update_VerStatus;
             % Estimate turbidity
             obj.Cal_Turbidity;
+            % Estimate conductivity Rusydi (2018) equation
+            obj.C_Co = obj.C_SS./0.65;
             % Show results
             WQSMessage = sprintf('%60s | Time: %.4f sec\n','Execution of the suspended solids model',toc);
             fprintf(WQSMessage)
@@ -1044,7 +1038,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % indicated in Qual2Kw [0.0005] is taken
             addParameter(ip, 'vno',0.0005 ,@isnumeric)
             % Hydrolysis reaction rate [1/d]. k = 0.02
-            addParameter(ip, 'khno',obj.Kd_ArrheniusModel('NameParam','NO','k',0.02) ,@ismatrix)
+            addParameter(ip, 'kno',obj.Kd_ArrheniusModel('NameParam','NO','k',0.02) ,@ismatrix)
             % Organic Nitrogen Load [mg/day]
             addParameter(ip, 'Load_NO',zeros(size(obj.ReachID)),@ismatrix)
             % Organic Nitrogen Load in Boundary Conditions [mg/day]
@@ -1054,7 +1048,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Organic nitrogen sedimentation rate [m/d]
             vno             = ip.Results.vno;
             % Hydrolysis reaction rate [1/d]
-            obj.K_NO        = ip.Results.khno;
+            obj.K_NO        = ip.Results.kno;
             % Organic Nitrogen Load [mg/day]
             obj.Load_NO     = ip.Results.Load_NO;
             % Organic Nitrogen Load in Boundary Conditions [mg/day]
@@ -1105,7 +1099,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
         function K_NH4 = Params_KNH4(obj)
             % This function calculates the nitrification decay rate 
             % H     [m]     : Depth 
-            % v     [m/s]   : Current velocity 
+            % U     [m/s]   : Current velocity 
             % K_NH4 [1/d]   : Nitrification decay rate    
 
             % Robles and Camacho (2005) and Medina and Camacho (2008) 
@@ -1113,7 +1107,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % performance for mountain rivers. In their studies, 
             % Robles and Camacho (2005), using the Couchaine method, 
             % proposed the following expression for mountain rivers:
-            K_NH4_M  = ((0.4381.*(obj.v./obj.H)) + 0.5394);
+            K_NH4_M  = ((0.4381.*(obj.U./obj.H)) + 0.5394);
 
             % For plain rivers, the nitrification decay rate is estimated 
             % according to the proposal of Bansal (1976) as:
@@ -1123,6 +1117,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             
             % Nitrification decay rate
             K_NH4   = (K_NH4_M.*obj.RiverType) + (K_NH4_F.*~obj.RiverType);
+            
             % Correction for temperature
             K_NH4 = obj.Kd_ArrheniusModel('NameParam','NH4','k',K_NH4);
         end
@@ -1163,14 +1158,24 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             ip = inputParser;
             % nitrification decay rate [1/d]
             addParameter(ip, 'knh4',obj.Params_KNH4,@ismatrix)
+            % Hydrolysis reaction rate [1/d]. k = 0.02
+            addParameter(ip, 'kno',obj.Kd_ArrheniusModel('NameParam','NO','k',0.02) ,@ismatrix)
             % Ammoniacal Nitrogen Load [mg/day]
             addParameter(ip, 'Load_NH4',zeros(size(obj.ReachID)),@ismatrix)
+            % Organic Nitrogen concentration [mg/l]
+            addParameter(ip, 'C_NO',[],@ismatrix)
             % Ammoniacal Nitrogen Load in Boundary Conditions [mg/day]
             addParameter(ip, 'BC_NH4',zeros(size(obj.ReachID)),@ismatrix)
             % Checking input data
             parse(ip,varargin{:})
+            % Hydrolysis reaction rate [1/d]
+            obj.K_NO        = ip.Results.kno;
             % Ammoniacal Nitrogen Load [mg/day]
             obj.Load_NH4    = ip.Results.Load_NH4;
+            % Organic Nitrogen concentration [mg/l]
+            if ~isempty(ip.Results.C_NO)
+                obj.C_NO        = ip.Results.Load_NO;
+            end
             % Ammoniacal Nitrogen Load in Boundary Conditions [mg/day]
             obj.BC_NH4      = ip.Results.BC_NH4;
             % This function applies the ammonia nitrogen model Initializing loads to 0
@@ -1216,7 +1221,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
     end
     
     methods               
-        function Params_KNO3(obj,FoxdNO3,FdNO3)
+        function Params_KNO3(obj,FoxdNO3,kdNO3)
             % This function calculates the rate of decay of nitrates 
             % by nitrification with oxygen effect 
             % Foxd_NO3 [Ad] : Effect of low oxygen on denitrification 
@@ -1225,7 +1230,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
                         
             % Nitrate decay rate by oxygen-induced nitrification
             obj.K_NO3   = obj.ReachID*0;
-            obj.K_NO3(:)= FoxdNO3.*FdNO3;
+            obj.K_NO3(:)= FoxdNO3.*kdNO3;
         end
         
         function K__NO3 = Params_K__NO3(~,C_NH4,NO3u,K_NH4,K_NO3)
@@ -1265,9 +1270,13 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Effect of low oxygen on denitrification
             addParameter(ip, 'FoxdNO3',exp(-0.60) ,@isnumeric)
             % The denitrification rate kd_NO3 is the one indicated in Qual2Kw as the default value [0.1]
-            addParameter(ip, 'FdNO3',obj.Kd_ArrheniusModel('NameParam','NO3','k',0.1) ,@ismatrix)
+            addParameter(ip, 'kdNO3',obj.Kd_ArrheniusModel('NameParam','NO3','k',0.1) ,@ismatrix)
+            % nitrification decay rate [1/d]
+            addParameter(ip, 'knh4',obj.Params_KNH4,@ismatrix)
             % Nitrates Load [mg/day]
             addParameter(ip, 'Load_NO3',zeros(size(obj.ReachID)),@ismatrix)
+            % Ammoniacal Nitrogen concentration [mg/l]
+            addParameter(ip, 'C_NH4',[],@ismatrix)
             % Load Check Nitrates in boundary conditions [mg/day]
             addParameter(ip, 'BC_NO3',zeros(size(obj.ReachID)),@ismatrix)
             % Checking input data
@@ -1275,7 +1284,13 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Effect of low oxygen on denitrification
             FoxdNO3         = ip.Results.FoxdNO3;
             % Denitrification rate
-            FdNO3           = ip.Results.FdNO3;
+            kdNO3           = ip.Results.kdNO3;
+            % Ammoniacal Nitrogen concentration [mg/l]
+            if ~isempty(ip.Results.C_NH4)
+                obj.C_NH4       = ip.Results.C_NH4;
+            end
+            % Nitrification decay rate [1/d]
+            obj.K_NH4       = ip.Results.knh4;
             % Nitrates Load [mg/day]
             obj.Load_NO3    = ip.Results.Load_NO3;
             % Load Check Nitrates in boundary conditions [mg/day]
@@ -1291,7 +1306,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Assignment of discharge status
             obj.Update_VerStatus;
             % Calculation of nitrification decay rate
-            obj.Params_KNO3(FoxdNO3,FdNO3)
+            obj.Params_KNO3(FoxdNO3,kdNO3)
             % Activate FunctionNetwork function mode
             obj.StatusFun   = true;
             % Functions for accumulation in 1 and 2 sections
@@ -1320,16 +1335,16 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
     end
     
     methods                
-        function Params_KPO(obj,Khpo,vpo)
+        function Params_KPO(obj,Kpo,vpo)
              % This function calculates the decay constant of organic phosphorus 
              % by hydrolysis and sedimentation 
              % H [m] : Depth 
-             % Khpo [1/d] : Rate of reaction by hydrolysis 
+             % Kpo [1/d] : Rate of reaction by hydrolysis 
              % vpo [m/d] : Sedimentation velocity of organic phosphorus 
              % K_PO [1/d] : Rate of decay of organic phosphorus by hydrolysis and sedimentation
             
             % Decay constant of organic phosphorus by hydrolysis and sedimentation[1/d]
-            obj.K_PO    = Khpo + (vpo./obj.H);
+            obj.K_PO    = Kpo + (vpo./obj.H);
         end
         
         function WQS_PO(obj,varargin) 
@@ -1342,7 +1357,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             addParameter(ip, 'vpo',0.001,@isnumeric)
             % Hydrolysis reaction rate [1/d] 
             % Default value indicated in Qual2Kw [0.03] is taken
-            addParameter(ip, 'Khpo',0.03,@isnumeric)
+            addParameter(ip, 'Kpo',obj.Kd_ArrheniusModel('NameParam','PO','k',0.03),@isnumeric)
             % Organic Phosphorus Load [mg/day]
             addParameter(ip, 'Load_PO',zeros(size(obj.ReachID)),@ismatrix)
             % Inorganic Phosphorus Load in Boundary Conditions [mg/day]
@@ -1352,7 +1367,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Organic phosphorus sedimentation rate [m/d]
             vpo             = ip.Results.vpo;
             % Hydrolysis reaction rate [1/d]
-            Khpo            = ip.Results.Khpo;
+            Kpo            = ip.Results.Kpo;
             % Organic Phosphorus Load [mg/day]
             obj.Load_PO     = ip.Results.Load_PO;
             % Inorganic Phosphorus Load in Boundary Conditions [mg/day]
@@ -1366,7 +1381,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Assignment of discharge status
             obj.Update_VerStatus;
             % Decay rate calculation [1/d]
-            obj.Params_KPO(Khpo,vpo);
+            obj.Params_KPO(Kpo,vpo);
             % Calculation of assimilation factor
             obj.AF_PO       = obj.Cal_AF_CoIndependent(obj.Q.*obj.ConFac_Q,obj.tao,obj.Tr,obj.K_PO);
             % Activate FunctionNetwork function mode
@@ -1448,16 +1463,27 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             ip = inputParser;
             % Inorganic phosphorus sedimentation rate [m/d] Default value indicated in Qual2Kw [0.8] is taken
             addParameter(ip, 'vpi',0.8,@isnumeric)
+            % Hydrolysis reaction rate [1/d] 
+            % Default value indicated in Qual2Kw [0.03] is taken
+            addParameter(ip, 'Kpo',obj.Kd_ArrheniusModel('NameParam','PO','k',0.03),@isnumeric)
             % Inorganic Phosphorus Load [mg/day]
             addParameter(ip, 'Load_PI',zeros(size(obj.ReachID)),@ismatrix)
+            % Organic Phosphorus concentration [mg/l]
+            addParameter(ip, 'C_PO',[],@ismatrix)
             % Organic Phosphorus Load in Boundary Conditions [mg/day]
             addParameter(ip, 'BC_PI',zeros(size(obj.ReachID)),@ismatrix)
             % Checking input data
             parse(ip,varargin{:})
             % Inorganic phosphorus sedimentation rate [m/d]
             vpi             = ip.Results.vpi;
+            % Hydrolysis reaction rate [1/d]
+            obj.K_PO        = ip.Results.Kpo;
             % Inorganic Phosphorus Load [mg/day]
             obj.Load_PI     = ip.Results.Load_PI;
+            % Organic Phosphorus concentration [mg/l]
+            if ~isempty(ip.Results.C_PO)
+                obj.C_PO       = ip.Results.C_PO;
+            end
             % Organic Phosphorus Load in Boundary Conditions [mg/day]
             obj.BC_PI       = ip.Results.BC_PI;
             % This function applies the inorganic phosphorus model Initializing charges to 0
@@ -1543,16 +1569,16 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             obj.K_OM   = FoxdOM.*obj.KdOM;
         end
         
-        function Cal_teta_OM(obj,FoxdNO3,FdNO3)    
+        function Cal_teta_OM(obj,FoxdNO3,kdNO3)    
             % This function calculates the nitrification decay rate 
             % considering oxygen 
             % FoxdNO3   [Ad]    : Factor that considers the effect of oxygen 
-            % FdNO3     [1/d]   : Nitrate nitrification decay rate considering oxygen 
+            % kdNO3     [1/d]   : Nitrate nitrification decay rate considering oxygen 
             % K_NO3_OM  [1/d]   : Nitration decay rate considering oxygen
 
             % nitrification decay rate considering oxygen [1/d]
             obj.K_NO3_OM    = obj.ReachID.*0;
-            obj.K_NO3_OM(:) = (0.00286.*(1-FoxdNO3).*FdNO3);
+            obj.K_NO3_OM(:) = (0.00286.*(1-FoxdNO3).*kdNO3);
         end
         
         function K__OM = Params_K__OM(~,C_NO3,OMu,K_NO3_OM,K_OM)
@@ -1595,9 +1621,11 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Effect of low oxygen on denitrification
             addParameter(ip, 'FoxdNO3',exp(-0.60) ,@isnumeric)
             % The denitrification rate kd_NO3 is the one indicated in Qual2Kw as the default value [0.1]
-            addParameter(ip, 'FdNO3',0.1 ,@isnumeric)
+            addParameter(ip, 'kdNO3',0.1 ,@isnumeric)
             % Organic Matter Load Check [mg/day]
             addParameter(ip, 'Load_OM',zeros(size(obj.ReachID)),@ismatrix)
+            % Nitrates concentration [mg/l]
+            addParameter(ip, 'C_NO3',[],@ismatrix)
             % Check of Organic Matter Load in Boundary Conditions [mg/day]
             addParameter(ip, 'BC_OM',zeros(size(obj.ReachID)),@ismatrix)           
             % Checking input data
@@ -1609,9 +1637,13 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Effect of low oxygen on denitrification
             FoxdNO3         = ip.Results.FoxdNO3;
             % Denitrification rate
-            FdNO3           = ip.Results.FdNO3;
+            kdNO3           = ip.Results.kdNO3;
             % Organic Matter Load Check [mg/day]
             obj.Load_OM     = ip.Results.Load_OM;
+            % Nitrates concentration [mg/l]
+            if ~isempty(ip.Results.C_NO3)
+                obj.C_NO3       = ip.Results.C_NO3;
+            end
             % Check of Organic Matter Load in Boundary Conditions [mg/day]
             obj.BC_OM       = ip.Results.BC_OM;
             % This function applies the inorganic phosphorus model Initializing charges to 0
@@ -1628,7 +1660,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             obj.Update_VerStatus;
             % Calculation parameters
             obj.Cal_ro_OM(FoxdOM);
-            obj.Cal_teta_OM(FoxdNO3,FdNO3);
+            obj.Cal_teta_OM(FoxdNO3,kdNO3);
             % Save original data of K_NO3
             obj.VarTmp      = obj.K_NO3;
             obj.K_NO3       = obj.K_NO3_OM;            
@@ -1674,7 +1706,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % for mountain rivers and those of O’Connor – Dubbins, 
             % Churchill and Owens - Gibbs for plain rivers 
             % H     [m]     : Depth of the water table of the stream section 
-            % v     [m/s]   : Flow velocity of the stream section 
+            % U     [m/s]   : Flow velocity of the stream section 
             % Q     [m3/s]  : Flow rate of the stream section 
             % S     [m/m]   : Slope of the stream section 
             % Ka_DO [1/d]   : Re-aeration rate
@@ -1684,29 +1716,29 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             id              = obj.RiverType&...
                               (0.0283<=obj.Q)&...
                               (obj.Q < 0.4247);
-            Ka_DO(id)   = 31.183.*obj.v(id).*obj.S(id);
+            Ka_DO(id)   = 31.183.*obj.U(id).*obj.S(id);
             id              = obj.RiverType&...
                               (0.4247<=obj.Q)&...
                               (obj.Q < 84.938);
-            Ka_DO(id)   = 15.308.*obj.v(id).*obj.S(id);
+            Ka_DO(id)   = 15.308.*obj.U(id).*obj.S(id);
 
             % Rivers of the O’Connor-Dubbins Plain
             id              = ~obj.RiverType&...
                               (0.30<=obj.H)&(obj.H < 9.14)&...
-                              (0.15<=obj.v)&(obj.v < 0.49);
-            Ka_DO(id)   = 3.95.*((obj.v(id).^0.5)./(obj.H(id).^1.5));
+                              (0.15<=obj.U)&(obj.U < 0.49);
+            Ka_DO(id)   = 3.95.*((obj.U(id).^0.5)./(obj.H(id).^1.5));
             
             % Churchill
             id              = ~obj.RiverType&...
                              (0.31<=obj.H)&(obj.H < 3.35)&...
-                             (0.55<=obj.v)&(obj.v < 1.52);
-            Ka_DO(id)   = 5.026.*(obj.v(id)./(obj.H(id).^1.67));
+                             (0.55<=obj.U)&(obj.U < 1.52);
+            Ka_DO(id)   = 5.026.*(obj.U(id)./(obj.H(id).^1.67));
             
             % Owens - Gibbs
             id              = ~obj.RiverType&...
                               (0.12<=obj.H)&(obj.H < 0.73)&...
-                              (0.03<=obj.v)&(obj.v < 0.55);
-            Ka_DO(id)   = 5.32.*((obj.v(id).^0.67)./(obj.H(id).^1.85));
+                              (0.03<=obj.U)&(obj.U < 0.55);
+            Ka_DO(id)   = 5.32.*((obj.U(id).^0.67)./(obj.H(id).^1.85));
             
             % Thackston & Dawson, 2001 Acceleration of gravity [m/s^2]
             g   = 9.81;
@@ -1715,7 +1747,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % Cutting speed
             Vc = sqrt(g.*Rn.*obj.S);
             % Froude number
-            Fr = (obj.v.^2)./(g.*obj.L);
+            Fr = (obj.U.^2)./(g.*obj.L);
             % Re-aeration rate calculation
             id = isnan(Ka_DO);
             Ka_DO(id) = 2.16.*( 1 + (9.*(Fr(id).^0.25))).*(Vc(id)./obj.H(id));
@@ -1866,23 +1898,43 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             ip = inputParser;
             % nitrification decay rate [1/d]
             addParameter(ip, 'ka',obj.Ka_DO_Model,@ismatrix)
+            % nitrification decay rate [1/d]
+            addParameter(ip, 'knh4',obj.Params_KNH4,@ismatrix)
+            % Calculation of decay rate by decomposition following the expression proposed by Wright and McDonnell (1979) [1/d]
+            addParameter(ip, 'kdOM',obj.KdOM_WrightMcDonnell,@ismatrix)
             % Dissolved Oxygen Deficit Load [mg/day]
-            addParameter(ip, 'Load_DOD',zeros(size(obj.ReachID)),@ismatrix)
+            addParameter(ip, 'Load_DO',zeros(size(obj.ReachID)),@ismatrix)
+            % Ammoniacal Nitrogen concentration [mg/l]
+            addParameter(ip, 'C_NH4',[],@ismatrix)
+            % Organic matter concentration [mg/l]
+            addParameter(ip, 'C_OM',[],@ismatrix)
             % Dissolved Oxygen Deficit Load in boundary conditions [mg/day]
             addParameter(ip, 'BC_DOD',zeros(size(obj.ReachID)),@ismatrix)
             % Checking input data
             parse(ip,varargin{:})
-            % Dissolved Oxygen Deficit Load [mg/day]
-            obj.Load_DOD    = ip.Results.Load_DOD;
+            % Dissolved Oxygen concentration [mg/l]
+            obj.W_DO    = ip.Results.Load_DO;
+            % Dissolved Oxygen Load [mg/day]
+            obj.C_DO    = obj.W_DO./(obj.Q.*obj.ConFac_Q);
             % Dissolved Oxygen Deficit Load in boundary conditions [mg/day]
             obj.BC_DOD      = ip.Results.BC_DOD;
+            % Inorganic phosphorus sedimentation rate [m/d]
+            obj.KdOM        = ip.Results.kdOM;
+            % Nitrification decay rate [1/d]
+            obj.K_NH4       = ip.Results.knh4;
+            % Ammoniacal Nitrogen concentration [mg/l]
+            if ~isempty(ip.Results.C_NH4)
+                obj.C_NH4       = ip.Results.C_NH4;
+            end           
+            % Organic matter concentration [mg/l]
+            if ~isempty(ip.Results.C_OM)
+                obj.C_OM       = ip.Results.C_OM;
+            end
 
             % Initialize variables
             obj.Qaccum      = zeros(size(obj.ReachID));
             obj.W_DOD       = zeros(size(obj.ReachID));
             obj.C_DOD       = zeros(size(obj.ReachID));
-            obj.W_DO        = zeros(size(obj.ReachID));
-            obj.C_DO        = zeros(size(obj.ReachID));
             obj.AF_DOD      = zeros(size(obj.ReachID));
             obj.K__DOD      = zeros(size(obj.ReachID));
             % Assign discharge status
@@ -1990,6 +2042,8 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             addParameter(ip,'Fd',1./(1 + ((10^Kd).*(obj.C_SS./1000000))),@ismatrix)
             % Elemental Mercury Load [mg/day]
             addParameter(ip, 'Load_Hg0',zeros(size(obj.ReachID)),@ismatrix)
+            % Divalent Mercury concentration [mg/l]
+            addParameter(ip, 'C_Hg2',[],@ismatrix)
             % Elemental Mercury Charge in Boundary Conditions [mg/day]
             addParameter(ip, 'BC_Hg0',zeros(size(obj.ReachID)),@ismatrix)
             % Checking input data
@@ -2005,7 +2059,10 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             obj.Load_Hg0    = ip.Results.Load_Hg0;
             % Elemental Mercury Charge in Boundary Conditions [mg/day]
             obj.BC_Hg0      = ip.Results.BC_Hg0;
-            
+            % Divalent Mercury concentration [mg/l]
+            if ~isempty(ip.Results.C_Hg2)
+                obj.C_Hg2 = ip.Results.C_Hg2;
+            end
             % This function applies the elemental mercury model Initializing charges to 0
             obj.W_Hg0       = zeros(size(obj.ReachID));
             % Initializing concentrations to 0
@@ -2131,7 +2188,9 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             Kd  = 3.6;
             addParameter(ip, 'Fp',((10^Kd).*(obj.C_SS./1000000))./(1 + ((10^Kd).*(obj.C_SS./1000000))),@ismatrix) 
             % Divalent Mercury Load [mg/day]
-            addParameter(ip, 'Load_Hg2',zeros(size(obj.ReachID)),@ismatrix)
+            addParameter(ip, 'Load_Hg2',zeros(size(obj.ReachID)),@ismatrix)   
+            % Elemental Mercury concentration [mg/l]
+            addParameter(ip, 'C_Hg0',[],@ismatrix)
             % Divalent Mercury Load in Boundary Conditions [mg/day]
             addParameter(ip, 'BC_Hg2',zeros(size(obj.ReachID)),@ismatrix)
             % Checking input data
@@ -2148,6 +2207,10 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             Kme_p           = ip.Results.Kme_p;
             % Fraction of divalent mercury found in particulate matter 
             Fp              = ip.Results.Fp;
+            % Divalent Mercury concentration [mg/l]
+            if ~isempty(ip.Results.C_Hg0)
+                obj.C_Hg0 = ip.Results.C_Hg0;
+            end
             % Divalent Mercury Load [mg/day]
             obj.Load_Hg2    = ip.Results.Load_Hg2;
             % Divalent Mercury Load in Boundary Conditions [mg/day]
@@ -2274,9 +2337,10 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             addParameter(ip, 'Ku',0,@isnumeric)          
             % Methyl Mercury Load [mg/day]
             addParameter(ip, 'Load_MeHg',zeros(size(obj.ReachID)),@ismatrix) 
+            % Divalent Mercury concentration [mg/l]
+            addParameter(ip, 'C_Hg2',[],@ismatrix)
             % Methyl Mercury Load in Boundary Conditions [mg]
             addParameter(ip, 'BC_MeHg',zeros(size(obj.ReachID)),@ismatrix) 
-
             % Checking input data
             parse(ip,varargin{:})
             % Dissolved HgII methylation rate [1/d]
@@ -2289,6 +2353,10 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             vs              = ip.Results.vs;
             % Bioaccumulation rate of methyl mercury [1/d] 
             Ku              = ip.Results.Ku;
+            % Divalent Mercury concentration [mg/l]
+            if ~isempty(ip.Results.C_Hg2)
+                obj.C_Hg2 = ip.Results.C_Hg2;
+            end
             % Methyl Mercury Load [mg/day]
             obj.Load_MeHg   = ip.Results.Load_MeHg; 
             % Methyl Mercury Load in Boundary Conditions [mg]
@@ -2348,25 +2416,21 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             NameParam   = ip.Results.NameParam;
             k           = ip.Results.k;
 
-            % Internal parameters
-            switch NameParam
-                case 'OM'
-                    % Temperature correction factor
-                    Teta    = 1.047;
+            % Internal parameters of Temperature correction factor
+            switch NameParam     
+                case 'X'
+                    Teta    = 1.07;
+                case 'PO'
+                    Teta    = 1.07;
                 case 'NO'
-                    % Temperature correction factor
                     Teta    = 1.047;
                 case 'NH4'
-                    % Temperature correction factor
                     Teta    = 1.047;
                 case 'NO3'
-                    % Temperature correction factor
                     Teta    = 1.0698;
-                case 'X'
-                    % Temperature correction factor
-                    Teta    = 1.07;
+                case 'OM'                    
+                    Teta    = 1.047;
                 case 'DO'
-                    % Temperature correction factor
                     Teta    = 1.024;
             end
 
@@ -2425,7 +2489,7 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
         end
                 
         % Solute speed
-        function Vs_Lees(obj)
+        function Us_lees(obj)
             % This function estimates the solute velocity according to the 
             % relationship proposed by Lees et al. (2000). Lees et al. (2000) 
             % presented a relationship between flow velocity and solute velocity 
@@ -2436,11 +2500,11 @@ classdef AFAR_WQS < ClassNetwork & matlab.mixin.Copyable
             % (corresponding to the relationship between the cross-sectional 
             % areas of the main channel and the dead zones) (Camacho, 2000) 
             % (Rojas, 2011) 
-            % v [m/s] : Flow velocity 
-            % Vs [m/s] : Solute velocity
+            % U [m/s] : Flow velocity 
+            % Us [m/s] : Solute velocity
             
             % Solute velocity [m/s]
-            obj.Vs = obj.v./(1 + obj.Beta);         
+            obj.Us = obj.U./(1 + obj.Beta);         
         end                
             
         % Variable Accumulation

@@ -8,8 +8,6 @@ function [  FuncNetwork , PoNet] =  FunctionalBranch( obj, ReachID_RM, ReachID_R
 % Author        : Jonathan Nogales Pimentel
 %                 Carlos Andrés Rogéliz Prada
 % Email         : jonathannogales02@gmail.com
-% Company       : The Nature Conservancy - TNC
-% Date          : October, 2018
 % 
 % -------------------------------------------------------------------------
 % This program is free software: you can redistribute it and/or modify it 
@@ -60,15 +58,6 @@ function [  FuncNetwork , PoNet] =  FunctionalBranch( obj, ReachID_RM, ReachID_R
 %   AccumClipLossVarOut [n,h] = Cumulative Variables With Losses and Clipping
 %   PoNet               [n,1] = Position of the Network in one River Sections 
 %                               Special
-%
-%--------------------------------------------------------------------------
-%                              REFERENCES
-%--------------------------------------------------------------------------
-% - This function is an enhancement of the FunctionalBranch function created 
-%   by researcher Hector Angarita as part of his work on hydropower by design 
-%   at The Nature Conservancy. 
-% 
-%--------------------------------------------------------------------------
 
 FuncNetwork         = 0 * obj.Barrier;
 % Current ReachID

@@ -1,4 +1,4 @@
-# FAR-WQS (Assimilation Factor Analysis of Rivers for Water Quality Simulation)
+# AFAR-WQS (Assimilation Factor Analysis of Rivers for Water Quality Simulation)
 AFAR-WQS (Assimilation Factor Analysis of Rivers for Water Quality Simulation), a MATLAB-based tool designed to simulate key water quality determinants using the concept of steady-state assimilation factors. The tool combines graph theory and a recursive algorithm to model assimilation factors, concentrations, and loads for each water quality determinant, accounting for both diffuse and point-source pollution. AFAR-WQS supports large-scale simulations with minimal computational demand and low data requirements, offering researchers, managers, and policymakers an accessible tool for optimizing intervention strategies and resource allocation in river basin management.
 
 ## How does AFAR-WQS operate?
